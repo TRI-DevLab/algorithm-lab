@@ -1,0 +1,18 @@
+# Optimized files
+__pycache__/
+*py[cod]
+*$py.class
+
+
+# Virtual environments
+venv/
+.venv/
+.env/
+
+# IDE / Editor folders
+.vscode/
+.idea/
+
+# OS Metadata
+.DS_Store
+Thumbs.db
