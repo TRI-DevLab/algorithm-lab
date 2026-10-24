@@ -1,6 +1,6 @@
 from collections import deque
 from grid import Grid, Coordinate
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any, Generator
 
 def reconstruct_path(
         came_from: Dict[Coordinate, Optional[Coordinate]],
