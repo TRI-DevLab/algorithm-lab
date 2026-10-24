@@ -1,6 +1,7 @@
 from sys import exit
 import pygame
 from grid import Grid, Coordinate
+from algorithms import bfs
 
 # Visual Constants 
 cell_size = 40
@@ -9,6 +10,8 @@ bg_color = (255, 255, 255)          # White
 start_color = (0, 255, 0)           # Green
 goal_color = (255, 0, 0)            # Red
 wall_color = (50, 50, 50)           # Dark Grey
+visited_color = (173, 216, 230)     # Light Blue
+path_color = (255, 215, 0)          # Gold/Yellow 
 
 
 def get_grid_pos(mouse_pos: Coordinate) -> Coordinate: 
@@ -20,9 +23,42 @@ def get_grid_pos(mouse_pos: Coordinate) -> Coordinate:
 
     return (grid_x, grid_y)
 
-def draw_grid(screen: pygame.surface, grid: Grid):           
+def draw_grid(
+        screen: pygame.surface, 
+        grid: Grid,
+        visited: list,
+        path: list
+    ):           
     """Draw Grid lines, cells, start, goal, and walls."""
+
     screen.fill(bg_color)
+
+    # Visited Cells
+    for coord in visited:
+        # coord[0] = x and coord[1] = y
+        if coord != grid.start and coord != grid.goal:
+            rect = pygame.Rect(             # placing the position of path at pixel position
+                coord[0] * cell_size,
+                coord[1] * cell_size,
+                cell_size,
+                cell_size
+            )
+
+            pygame.draw.rect(screen, visited_color, rect)
+
+    # Shortest Path Cells 
+    for coord in path:
+        # coord[0] = x and coord[1] = y
+        if coord != grid.start and coord != grid.goal:
+            rect = pygame.Rect(             # placing the position of path at pixel position
+                coord[0] * cell_size,
+                coord[1] * cell_size,
+                cell_size,
+                cell_size
+            )
+
+            pygame.draw.rect(screen, path_color, rect)
+
 
     # Special Cells
     for y in range(grid.height):
@@ -85,6 +121,9 @@ def main():
     screen = pygame.display.set_mode((screen_width, screen_height))  
     clock = pygame.time.Clock()
 
+    visited_cells = []
+    path_cells = []
+
     running = True
     while running:
         for event in pygame.event.get():
@@ -96,6 +135,10 @@ def main():
                 # Press C to clear all walls
                 if event.key == pygame.K_c:
                     grid.walls.clear()
+
+                # Press SPACE to run bfs algorithm
+                elif event.key == pygame.K_SPACE:
+                    path_cells, visited_cells = bfs(grid)
 
         # Mouse Interaction
         mouse_pressed = pygame.mouse.get_pressed()              # Mouse Buttons (left, middle, right)
@@ -126,7 +169,7 @@ def main():
             elif mouse_pressed[2]:
                 grid.walls.discard(grid_pos)
 
-        draw_grid(screen, grid)
+        draw_grid(screen, grid, visited_cells, path_cells)
         pygame.display.flip()
         clock.tick(60)
 

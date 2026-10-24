@@ -1,12 +1,13 @@
 from collections import deque
-from grid import Grid
+from grid import Grid, Coordinate
+from typing import Dict, List, Optional, Tuple
 
 def reconstruct_path(
-        came_from,
-        start,
-        goal
-):
-
+        came_from: Dict[Coordinate, Optional[Coordinate]],
+        start: Coordinate,
+        goal: Coordinate
+) -> List[Coordinate]:
+    """Reconstructs the shortest path from start to goal - by tracing came_from backwards."""
     current = goal          # working backwards so its starts from end
     path = []
 
@@ -22,16 +23,22 @@ def reconstruct_path(
         return []
 
 
-def bfs(grid):
+def bfs(grid: Grid) -> Tuple[List[Coordinate], List[Coordinate]]:
+    """ 
+    Executes the Breadth-First Search Algorithm on a given Grid.
 
+    Returns: 
+    - Path: shortest path from start to goal, or empty list if unreachable.
+    - Visited: All explored nodes (coordinates) in the order they were processed.
+    """
     start = grid.start
     goal = grid.goal
 
     queue = deque([start])      # FIFO queue  front - [(0, 1)] - back
-    came_from = {             
+    came_from: Dict[Coordinate, Optional[Coordinate]] = {             
         start: None             # Next node: Previous node
     }
-    visited_order = []          # cells removed from queue and processed 
+    visited_order: List[Coordinate] = []          # cells removed from queue and processed 
 
     found = False               # Initialized whether goal been found
 
