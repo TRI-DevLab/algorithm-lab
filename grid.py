@@ -39,7 +39,7 @@ class Grid:
 
         return False
 
-    def neighbor(self, node: Coordinate) -> List[Coordinate]: 
+    def neighbors(self, node: Coordinate) -> List[Coordinate]: 
         """Returns connected open coordinates"""
         x, y = node
 
