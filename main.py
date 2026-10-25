@@ -11,7 +11,7 @@ start_color = (0, 255, 0)           # Green
 goal_color = (255, 0, 0)            # Red
 wall_color = (50, 50, 50)           # Dark Grey
 visited_color = (173, 216, 230)     # Light Blue
-path_color = (255, 215, 0)          # Gold/Yellow 
+path_color = (255, 213, 79)         # Gold 
 
 
 def get_grid_pos(mouse_pos: Coordinate) -> Coordinate: 
@@ -109,7 +109,7 @@ def main():
     # initialize Grid Modal
     grid = Grid(
         width = 16,
-        height = 12,
+        height = 16,
         start = (1, 1),
         goal = (14, 10),
     )
@@ -121,8 +121,20 @@ def main():
     screen = pygame.display.set_mode((screen_width, screen_height))  
     clock = pygame.time.Clock()
 
-    visited_cells = []
-    path_cells = []
+
+    # Visual state trackers
+    visited_cells = set()
+    displayed_path = []
+    full_path = []
+
+    # Animation Control Variables
+    search_generator = None
+    is_searching = False
+    is_drawing_path = False
+    path_index = 0
+
+    # Number of nodes processed per frame
+    steps_per_frame = 2
 
     running = True
     while running:
@@ -132,44 +144,82 @@ def main():
                 running = False
 
             elif event.type == pygame.KEYDOWN:
-                # Press C to clear all walls
+                # Press C to reset board 
                 if event.key == pygame.K_c:
                     grid.walls.clear()
+                    visited_cells.clear()
+                    displayed_path.clear()
+                    is_searching = False
+                    is_drawing_path = False
+                    search_generator = None
 
                 # Press SPACE to run bfs algorithm
-                elif event.key == pygame.K_SPACE:
-                    path_cells, visited_cells = bfs(grid)
+                elif event.key == pygame.K_SPACE and not is_searching and not is_drawing_path:
+                    visited_cells.clear()
+                    displayed_path.clear()
+                    full_path.clear()
+                    search_generator = bfs(grid)
+                    is_searching = True
+        
+        if not is_searching and not is_drawing_path:
+            # Mouse Interaction
+            mouse_pressed = pygame.mouse.get_pressed()              # Mouse Buttons (left, middle, right)
+            keys_pressed = pygame.key.get_pressed()                 # Keyboard keys
+            grid_pos = get_grid_pos(pygame.mouse.get_pos())         # Grid coordinate position conversion from mouse pixel position
 
-        # Mouse Interaction
-        mouse_pressed = pygame.mouse.get_pressed()              # Mouse Buttons (left, middle, right)
-        keys_pressed = pygame.key.get_pressed()                 # Keyboard keys
-        grid_pos = get_grid_pos(pygame.mouse.get_pos())         # Grid coordinate position conversion from mouse pixel position
+            if grid.in_bounds(grid_pos):        # First we confirm that the mouse is in the grid
+                
+                # Left mouse button
+                if mouse_pressed[0]:
 
-        if grid.in_bounds(grid_pos):        # First we confirm that the mouse is in the grid
-            
-            # Left mouse button
-            if mouse_pressed[0]:
+                    if keys_pressed[pygame.K_s]:        # s - key
+                        # Move start node (coordinate)
+                        if grid_pos != grid.goal:           # start node cannot override goal node 
+                            grid.walls.discard(grid_pos)    # remove any walls already there
+                            grid.start = grid_pos           # assign or update the start node (coordinate)
+                    elif keys_pressed[pygame.K_g]:      # g - key
+                        # Move goal node (coordinate)
+                        if grid_pos != grid.start:          # goal node cannot override start node
+                            grid.walls.discard(grid_pos)    # remove any walls already there
+                            grid.goal = grid_pos            # assign or update the goal node (coordinate)
+                    else:
+                        # Place a wall
+                        if (grid_pos != grid.start) and (grid_pos != grid.goal): # Cannot override start or goal node
+                            grid.walls.add(grid_pos)        # place wall node in set of walls
 
-                if keys_pressed[pygame.K_s]:        # s - key
-                    # Move start node (coordinate)
-                    if grid_pos != grid.goal:           # start node cannot override goal node 
-                        grid.walls.discard(grid_pos)    # remove any walls already there
-                        grid.start = grid_pos           # assign or update the start node (coordinate)
-                elif keys_pressed[pygame.K_g]:      # g - key
-                    # Move goal node (coordinate)
-                    if grid_pos != grid.start:          # goal node cannot override start node
-                        grid.walls.discard(grid_pos)    # remove any walls already there
-                        grid.goal = grid_pos            # assign or update the goal node (coordinate)
-                else:
-                    # Place a wall
-                    if (grid_pos != grid.start) and (grid_pos != grid.goal): # Cannot override start or goal node
-                        grid.walls.add(grid_pos)        # place wall node in set of walls
+                # Right mouse button - Erase walls
+                elif mouse_pressed[2]:
+                    grid.walls.discard(grid_pos)
 
-            # Right mouse button - Erase walls
-            elif mouse_pressed[2]:
-                grid.walls.discard(grid_pos)
+        # Search exploration animation
+        if is_searching and search_generator:
+            for _ in range(steps_per_frame):
+                try:
+                    event_type, data = next(search_generator)
+                    if event_type == "visiting":
+                        visited_cells.add(data)
+                    elif event_type == "path":
+                        full_path = data
+                        is_searching = False
+                        is_drawing_path = True
+                        path_index = 0
+                        break
+                    elif event_type == "not_found":
+                        is_searching = False
+                        break
+                except StopIteration:
+                    is_searching = False
+                    break
 
-        draw_grid(screen, grid, visited_cells, path_cells)
+        # Shortest Path Animation
+        elif is_drawing_path:
+            if path_index < len(full_path):
+                displayed_path.append(full_path[path_index])
+                path_index += 1
+            else:
+                is_drawing_path = False
+
+        draw_grid(screen, grid, visited_cells, displayed_path)
         pygame.display.flip()
         clock.tick(60)
 

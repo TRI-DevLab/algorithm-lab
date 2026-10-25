@@ -23,45 +23,41 @@ def reconstruct_path(
         return []
 
 
-def bfs(grid: Grid) -> Tuple[List[Coordinate], List[Coordinate]]:
+def bfs(grid: Grid) -> Generator[Tuple[str, Any], None, None]:
     """ 
     Executes the Breadth-First Search Algorithm on a given Grid.
 
-    Returns: 
-    - Path: shortest path from start to goal, or empty list if unreachable.
-    - Visited: All explored nodes (coordinates) in the order they were processed.
+    Yields: 
+    - ("visiting", Coordinate): The node (cell / coordinates) currently being processed
+    - ("path", List[Coordinate]): The reconstructed shortest path from start to goal
+    - ("not_found", None): Indicates to path exits (goal unreachable)
     """
     start = grid.start
     goal = grid.goal
 
     queue = deque([start])      # FIFO queue  front - [(0, 1)] - back
+
     came_from: Dict[Coordinate, Optional[Coordinate]] = {             
         start: None             # Next node: Previous node
     }
-    visited_order: List[Coordinate] = []          # cells removed from queue and processed 
-
-    found = False               # Initialized whether goal been found
 
     while queue:                # Loop until empty
 
         current = queue.popleft()       # Remove next cell
-        visited_order.append(current)   # record the processed cell 
+        yield ("visiting", current)     # Cell currently being the processed
 
         if current == goal:     # Check wether goal was found
-            found = True 
-            break
+            path = reconstruct_path(came_from, start, goal)     # reconstructs path from start - goal when goal found
+            yield ("path", path)        # return shortest route
+            return                      # used to exit generator
 
         for next_node in grid.neighbors(current):   # Get neighbor cells
             if next_node not in came_from:          # avoid visiting discovered cells
                 came_from[next_node] = current      # record next_node as key & previous node as value
                 queue.append(next_node)             # add neighbor node to queue
 
-            
-    if found:
-        path = reconstruct_path(came_from, start, goal)
-        return path, visited_order
 
-    return [], visited_order
+    yield ("not_found", None)           # When no path/route found
 
 if __name__ == "__main__":
     # Test Run 
@@ -74,8 +70,4 @@ if __name__ == "__main__":
         walls = {(2, 0), (2, 1), (2, 2), (2, 3), (2, 4)} 
     )
 
-    path, visited = bfs(grid)
-    print(grid)
-    print()
-    print(f"Total cells explored: {len(visited)}")
-    print("Path found:", path if path else "No Path found")
+    
