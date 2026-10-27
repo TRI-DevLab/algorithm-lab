@@ -1,7 +1,7 @@
 from sys import exit
 import pygame
 from grid import Grid, Coordinate
-from algorithms import bfs
+from algorithms import bfs, dfs, astar
 
 # Visual Constants 
 cell_size = 40
@@ -12,6 +12,12 @@ goal_color = (255, 0, 0)            # Red
 wall_color = (50, 50, 50)           # Dark Grey
 visited_color = (173, 216, 230)     # Light Blue
 path_color = (255, 213, 79)         # Gold 
+
+algorithms = {
+    "1": ("Breadth-First Search (BFS)", bfs),
+    "2": ("Depth First Search (DFS)", dfs),
+    "3": ("A* Search (Manhattan)", astar)
+}
 
 
 def get_grid_pos(mouse_pos: Coordinate) -> Coordinate: 
@@ -121,11 +127,15 @@ def main():
     screen = pygame.display.set_mode((screen_width, screen_height))  
     clock = pygame.time.Clock()
 
+    selected_key = "1"
+    name, current_algo = algorithms[selected_key]
+    pygame.display.set_caption(f"Algorithm Lab - [{name}] | [1] BFS  [2] DFS  [3] A*")
+    
 
     # Visual state trackers
-    visited_cells = set()
-    displayed_path = []
-    full_path = []
+    visited_cells = set()                           # Stores cells processed during the animation
+    displayed_path = []                             # Stores path cells that have been revealed so far
+    full_path = []                                  # Stores the completed shortest path after the goal is found
 
     # Animation Control Variables
     search_generator = None
@@ -134,7 +144,7 @@ def main():
     path_index = 0
 
     # Number of nodes processed per frame
-    steps_per_frame = 2
+    steps_per_frame = 1
 
     running = True
     while running:
@@ -153,21 +163,29 @@ def main():
                     is_drawing_path = False
                     search_generator = None
 
-                # Press SPACE to run bfs algorithm
-                elif event.key == pygame.K_SPACE and not is_searching and not is_drawing_path:
-                    visited_cells.clear()
-                    displayed_path.clear()
-                    full_path.clear()
-                    search_generator = bfs(grid)
-                    is_searching = True
+                # Selecting algorithm when idle 
+                elif not is_searching and not is_drawing_path:                  # prevents starting a new search while another search or path is operating 
+                    if event.key in (pygame.K_1, pygame.K_2, pygame.K_3):
+                        selected_key = pygame.key.name(event.key)
+                        name, current_algo = algorithms[selected_key]
+                        pygame.display.set_caption(f"Algorithm Lab - [{name}] | [1] BFS  [2] DFS  [3] A*")
+
+                    # Run selected algorithm using SPACE
+                    elif event.key == pygame.K_SPACE:
+                        visited_cells.clear()
+                        displayed_path.clear()
+                        full_path.clear()
+                        search_generator = current_algo(grid)
+                        is_searching = True
+
         
-        if not is_searching and not is_drawing_path:
+        if (not is_searching) and (not is_drawing_path):            # Disables Maze editing during animations
             # Mouse Interaction
             mouse_pressed = pygame.mouse.get_pressed()              # Mouse Buttons (left, middle, right)
             keys_pressed = pygame.key.get_pressed()                 # Keyboard keys
             grid_pos = get_grid_pos(pygame.mouse.get_pos())         # Grid coordinate position conversion from mouse pixel position
 
-            if grid.in_bounds(grid_pos):        # First we confirm that the mouse is in the grid
+            if grid.in_bounds(grid_pos):                    # First we confirm that the mouse is in the grid
                 
                 # Left mouse button
                 if mouse_pressed[0]:
@@ -194,7 +212,7 @@ def main():
         # Search exploration animation
         if is_searching and search_generator:
             for _ in range(steps_per_frame):
-                try:
+                try:                                            # Works as generator eventually has no more value and raises error       
                     event_type, data = next(search_generator)
                     if event_type == "visiting":
                         visited_cells.add(data)
