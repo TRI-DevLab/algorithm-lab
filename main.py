@@ -3,15 +3,25 @@ import pygame
 from grid import Grid, Coordinate
 from algorithms import bfs, dfs, astar
 
-# Visual Constants 
+# Dimensions 
 cell_size = 40
+hud_height = 70
+
+# Color (Chromonyms.com)
 grid_line_color = (200, 200, 200)   # Light Grey
 bg_color = (255, 255, 255)          # White
-start_color = (0, 255, 0)           # Green
+start_color = (40, 167, 69)         # Green
 goal_color = (255, 0, 0)            # Red
-wall_color = (50, 50, 50)           # Dark Grey
-visited_color = (173, 216, 230)     # Light Blue
-path_color = (255, 213, 79)         # Gold 
+wall_color = (52, 58, 64)           # Onyx
+visited_color = (173, 216, 230)     # Baby Blue
+path_color = (255, 213, 79)         # Mustard
+
+hud_bg_color = (33, 77, 41)         # Dark Charcoal Header
+hud_text_color = (248, 249, 250)    # Ghost White
+hud_accent_color = (255, 193, 7)    # Amber
+status_searching = (100, 181, 246)  # Maya Blue
+status_found = (129, 199, 132)      # Pistachio 
+status_failed = (239, 83, 80)       # Sunset Orange
 
 algorithms = {
     "1": ("Breadth-First Search (BFS)", bfs),
@@ -24,10 +34,58 @@ def get_grid_pos(mouse_pos: Coordinate) -> Coordinate:
     """Convert pixel coordinates to grid (x / row, y / col) coordinates."""
     pixel_x, pixel_y = mouse_pos
 
-    grid_x = pixel_x // cell_size       # Converting pixels at pos x into x-coordinate
-    grid_y = pixel_y // cell_size       # converting pixels at pos y into y-coordinate
+    if pixel_y < hud_height:
+        return (-1, -1)
+
+    grid_x = pixel_x // cell_size                       # Converting pixels at pos x into x-coordinate
+    grid_y = (pixel_y - hud_height) // cell_size        # converting pixels at pos y into y-coordinate - subtract HUD height 
 
     return (grid_x, grid_y)
+
+
+def draw_hud(screen: pygame.Surface, font: pygame.font.Font, small_font: pygame.font.Font, 
+             algo_name: str, status: str, visited_count: int, path_len: int, width: int):
+
+    # HUD background banner 
+    pygame.draw.rect(screen, hud_bg_color, pygame.Rect(0, 0, width, hud_height))
+    pygame.draw.line(screen, (73, 80, 87), (0, hud_height - 1), (width, hud_height -1), 2)
+
+    # Determine status color
+    if status == "SEARCHING...":
+        status_color = status_searching
+    elif status == "PATH FOUND":
+        status_color = status_found
+    elif status == "NO PATH FOUND":
+        status_color = status_failed
+    else:
+        status_color = hud_text_color
+
+    # Shorten display name slightly so long names don't overflow
+    if "(" in algo_name:
+        display_name = algo_name.split(" (",)[0]
+    else:
+        display_name = algo_name
+        
+    # Row 1: Algo name (left) & Status (aligned right)
+    algo_surf = font.render(f"Algo: {display_name}", True, hud_accent_color)
+    status_surf = font.render(f"Status: {status}", True, status_color)
+
+    # Blit: Algo on the left, status right after it with padding
+    screen.blit(algo_surf, (16, 10))
+    status_x = 16 + algo_surf.get_width() + 18
+    screen.blit(status_surf, (status_x, 10))
+
+    # Row 1 (Right): Visited & Path Length 
+    stats_text = f"Visited: {visited_count}    Path: {path_len}"
+    stats_surf = font.render(stats_text, True, hud_text_color)
+    screen.blit(stats_surf, (width - stats_surf.get_width() - 16, 10))
+
+
+    # Row 2: Controls hotkey helper
+    helper_text = "[1/2/3] Switch Algo | [Space] Run | [C] Clear | [S/G+Clicker] Endpoints"
+    helper_surf = small_font.render(helper_text, True, (173, 181, 189))
+    screen.blit(helper_surf, (16, 42))
+
 
 def draw_grid(
         screen: pygame.surface, 
@@ -45,7 +103,7 @@ def draw_grid(
         if coord != grid.start and coord != grid.goal:
             rect = pygame.Rect(             # placing the position of path at pixel position
                 coord[0] * cell_size,
-                coord[1] * cell_size,
+                coord[1] * cell_size + hud_height,
                 cell_size,
                 cell_size
             )
@@ -58,7 +116,7 @@ def draw_grid(
         if coord != grid.start and coord != grid.goal:
             rect = pygame.Rect(             # placing the position of path at pixel position
                 coord[0] * cell_size,
-                coord[1] * cell_size,
+                coord[1] * cell_size + hud_height,
                 cell_size,
                 cell_size
             )
@@ -73,7 +131,7 @@ def draw_grid(
 
             rect = pygame.Rect(         # placing the position of rectangle at pixel position
                 x * cell_size, 
-                y * cell_size, 
+                y * cell_size + hud_height, 
                 cell_size, 
                 cell_size
             )
@@ -92,8 +150,8 @@ def draw_grid(
         pygame.draw.line(
             screen,
             grid_line_color,
-            (x * cell_size, 0),                         # start position - Top
-            (x * cell_size, grid.height * cell_size)    # end position - bottom
+            (x * cell_size, hud_height),                                # start position - Top
+            (x * cell_size, hud_height + grid.height * cell_size)       # end position - bottom
         )
 
 
@@ -101,8 +159,8 @@ def draw_grid(
         pygame.draw.line(
             screen,
             grid_line_color,
-            (0, y * cell_size),                         # start position - left
-            (grid.width * cell_size, y * cell_size)     # end position - right
+            (0, hud_height + y * cell_size),                         # start position - left
+            (grid.width * cell_size, hud_height + y * cell_size)     # end position - right
         )
 
 
@@ -110,26 +168,33 @@ def draw_grid(
 def main():
 
     pygame.init()
+    pygame.font.init()
+
+    font = pygame.font.SysFont("Consolas", 15, bold = True)
+    small_font = pygame.font.SysFont("Consolas", 12)
+
+
     pygame.display.set_caption('Algorithm Lab - Maze Editor')
 
     # initialize Grid Modal
     grid = Grid(
-        width = 16,
-        height = 16,
+        width = 25,
+        height = 12,
         start = (1, 1),
         goal = (14, 10),
     )
 
+    screen_width = grid.width * cell_size                        # used to get screen width in pixels
+    screen_height = grid.height * cell_size + hud_height         # used to get screen height in pixels
 
-    screen_width = grid.width * cell_size           # used to get screen width in pixels
-    screen_height = grid.height * cell_size         # used to get screen height in pixels
+    pygame.display.set_caption('Algorithm Lab')
 
     screen = pygame.display.set_mode((screen_width, screen_height))  
     clock = pygame.time.Clock()
 
     selected_key = "1"
     name, current_algo = algorithms[selected_key]
-    pygame.display.set_caption(f"Algorithm Lab - [{name}] | [1] BFS  [2] DFS  [3] A*")
+    status = "IDLE"
     
 
     # Visual state trackers
@@ -159,16 +224,21 @@ def main():
                     grid.walls.clear()
                     visited_cells.clear()
                     displayed_path.clear()
+                    full_path.clear()
                     is_searching = False
                     is_drawing_path = False
                     search_generator = None
+                    status = "IDLE"
 
-                # Selecting algorithm when idle 
+                # Selecting algorithm (when idle) 
                 elif not is_searching and not is_drawing_path:                  # prevents starting a new search while another search or path is operating 
                     if event.key in (pygame.K_1, pygame.K_2, pygame.K_3):
                         selected_key = pygame.key.name(event.key)
                         name, current_algo = algorithms[selected_key]
-                        pygame.display.set_caption(f"Algorithm Lab - [{name}] | [1] BFS  [2] DFS  [3] A*")
+                        visited_cells.clear()
+                        displayed_path.clear()
+                        full_path.clear()
+                        status = "IDLE"
 
                     # Run selected algorithm using SPACE
                     elif event.key == pygame.K_SPACE:
@@ -177,6 +247,7 @@ def main():
                         full_path.clear()
                         search_generator = current_algo(grid)
                         is_searching = True
+                        status = "SEARCHING..."
 
         
         if (not is_searching) and (not is_drawing_path):            # Disables Maze editing during animations
@@ -221,12 +292,16 @@ def main():
                         is_searching = False
                         is_drawing_path = True
                         path_index = 0
+                        status = "PATH FOUND"
                         break
                     elif event_type == "not_found":
                         is_searching = False
+                        status = "NO PATH FOUND"
                         break
                 except StopIteration:
                     is_searching = False
+                    if not full_path:
+                        status = "NO PATH FOUND"
                     break
 
         # Shortest Path Animation
@@ -237,7 +312,18 @@ def main():
             else:
                 is_drawing_path = False
 
+        # Rendering
         draw_grid(screen, grid, visited_cells, displayed_path)
+        draw_hud(
+            screen = screen,
+            font = font,
+            small_font = small_font,
+            algo_name = name,
+            status = status,
+            visited_count = len(visited_cells),
+            path_len = len(full_path),
+            width = screen_width
+        )
         pygame.display.flip()
         clock.tick(60)
 
