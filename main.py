@@ -5,7 +5,7 @@ from algorithms import bfs, dfs, astar
 
 # Dimensions 
 cell_size = 40
-hud_height = 70
+hud_height = 85     # To make room for the metrics, hotkey and slider
 
 # Color (Chromonyms.com)
 grid_line_color = (200, 200, 200)   # Light Grey
@@ -16,6 +16,7 @@ wall_color = (52, 58, 64)           # Onyx
 visited_color = (173, 216, 230)     # Baby Blue
 path_color = (255, 213, 79)         # Mustard
 
+# Head Up Display (HUD) Styling
 hud_bg_color = (33, 77, 41)         # Dark Charcoal Header
 hud_text_color = (248, 249, 250)    # Ghost White
 hud_accent_color = (255, 193, 7)    # Amber
@@ -23,11 +24,73 @@ status_searching = (100, 181, 246)  # Maya Blue
 status_found = (129, 199, 132)      # Pistachio 
 status_failed = (239, 83, 80)       # Sunset Orange
 
-algorithms = {
+# Sliders Colors
+slider_track_color = (73, 80, 87)   # Grey
+slider_fill_color = (0, 123, 255)   # Blue
+slider_knob_color = (248, 249, 250) # Ghost White
+
+algorithms = {                                                   
     "1": ("Breadth-First Search (BFS)", bfs),
     "2": ("Depth First Search (DFS)", dfs),
     "3": ("A* Search (Manhattan)", astar)
 }
+
+class Slider:
+    """A draggable UI Slider for controlling simulation speed"""
+    def __init__(self, x: int, y: int, width: int,
+                height: int, min_val: int = 1, max_val: int = 15, initial_val: int = 2):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.min_val = min_val
+        self.max_val = max_val
+        self.val = initial_val
+        self.is_dragging = False
+        self.knob_radius = height // 2 + 3
+
+    def handle_event(self, event) -> bool:
+        """Handles mouse down, drag and release. Returns True if value changed."""
+
+        if (event.type == pygame.MOUSEBUTTONDOWN) and (event.button == 1):
+            # Check click on track or slightly expanded knob hit-box 
+            click_rect = self.rect.inflate(self.knob_radius * 2, self.knob_radius * 2)
+            if click_rect.collidepoint(event.pos):
+                self.is_dragging = True
+                self._update_val(event.pos[0])
+                return True
+
+        elif (event.type == pygame.MOUSEBUTTONUP) and (event.button == 1):
+            self.is_dragging = False
+
+        elif (event.type == pygame.MOUSEMOTION) and self.is_dragging:
+            self._update_val(event.pos[0])
+            return True
+
+        return False
+
+    def _update_val(self, mouse_x):
+        ratio = (mouse_x - self.rect.x) / self.rect.width
+        ratio = max(0.0, min(1.0, ratio))
+        self.val = int(round(self.min_val + ratio * (self.max_val - self.min_val)))
+
+    def draw(self, screen, font):
+        # 1. Background track
+        pygame.draw.rect(screen, slider_track_color, self.rect, border_radius = 4)
+
+        # 2. Fill track portion
+        ratio = (self.val - self.min_val) / (self.max_val - self.min_val)
+        fill_width = int(self.rect.width * ratio)
+        if fill_width > 0:
+            fill_rect = pygame.Rect(self.rect.x, self.rect.y, fill_width, self.rect.height)
+            pygame.draw.rect(screen, slider_fill_color, fill_rect, border_radius = 4)
+
+        # 3. Knob thumb
+        knob_x = self.rect.x + fill_width
+        knob_y = self.rect.centery
+        pygame.draw.circle(screen, slider_knob_color, (knob_x, knob_y), self.knob_radius)
+        pygame.draw.circle(screen, (33, 37, 41), (knob_x, knob_y), self.knob_radius, 2)
+
+        # 4. Label displaying current speed
+        label_surf = font.render(f"Speed: {self.val}x", True, hud_text_color)
+        screen.blit(label_surf, (self.rect.right + 12, self.rect.y -2))
 
 
 def get_grid_pos(mouse_pos: Coordinate) -> Coordinate: 
@@ -43,8 +106,18 @@ def get_grid_pos(mouse_pos: Coordinate) -> Coordinate:
     return (grid_x, grid_y)
 
 
-def draw_hud(screen: pygame.Surface, font: pygame.font.Font, small_font: pygame.font.Font, 
-             algo_name: str, status: str, visited_count: int, path_len: int, width: int):
+def draw_hud(
+        screen: pygame.Surface, 
+        font: pygame.font.Font,
+        small_font: pygame.font.Font, 
+        algo_name: str, 
+        status: str, 
+        visited_count: int, 
+        path_len: int, 
+        width: int,
+        slider: Slider
+    ):
+    """Renders The Head Up Display Dashboard"""
 
     # HUD background banner 
     pygame.draw.rect(screen, hud_bg_color, pygame.Rect(0, 0, width, hud_height))
@@ -85,6 +158,9 @@ def draw_hud(screen: pygame.Surface, font: pygame.font.Font, small_font: pygame.
     helper_text = "[1/2/3] Switch Algo | [Space] Run | [C] Clear | [S/G+Clicker] Endpoints"
     helper_surf = small_font.render(helper_text, True, (173, 181, 189))
     screen.blit(helper_surf, (16, 42))
+
+    # Row 3: Draw Slider
+    slider.draw(screen, small_font)
 
 
 def draw_grid(
@@ -192,6 +268,17 @@ def main():
     screen = pygame.display.set_mode((screen_width, screen_height))  
     clock = pygame.time.Clock()
 
+    # Initialize dynamic speed slider: (placed at x = 16, y = 58)
+    speed_slider = Slider(
+        x = 16,
+        y = 60,
+        width = 140,
+        height = 10, 
+        min_val = 1,
+        max_val = 15,
+        initial_val = 2
+    )
+
     selected_key = "1"
     name, current_algo = algorithms[selected_key]
     status = "IDLE"
@@ -208,8 +295,6 @@ def main():
     is_drawing_path = False
     path_index = 0
 
-    # Number of nodes processed per frame
-    steps_per_frame = 1
 
     running = True
     while running:
@@ -218,7 +303,10 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
 
-            elif event.type == pygame.KEYDOWN:
+            # Let the slider process clicks/drags regardless of simulation state
+            speed_slider.handle_event(event)
+
+            if event.type == pygame.KEYDOWN:
                 # Press C to reset board 
                 if event.key == pygame.K_c:
                     grid.walls.clear()
@@ -249,8 +337,8 @@ def main():
                         is_searching = True
                         status = "SEARCHING..."
 
-        
-        if (not is_searching) and (not is_drawing_path):            # Disables Maze editing during animations
+        # Mouse editing (only if idle and not dragging slider)
+        if (not is_searching) and (not is_drawing_path) and (not speed_slider.is_dragging):            # Disables Maze editing during animations and slider movement
             # Mouse Interaction
             mouse_pressed = pygame.mouse.get_pressed()              # Mouse Buttons (left, middle, right)
             keys_pressed = pygame.key.get_pressed()                 # Keyboard keys
@@ -282,7 +370,8 @@ def main():
 
         # Search exploration animation
         if is_searching and search_generator:
-            for _ in range(steps_per_frame):
+            speed = speed_slider.val
+            for _ in range(speed):
                 try:                                            # Works as generator eventually has no more value and raises error       
                     event_type, data = next(search_generator)
                     if event_type == "visiting":
@@ -304,13 +393,16 @@ def main():
                         status = "NO PATH FOUND"
                     break
 
-        # Shortest Path Animation
+        # Shortest Path Animation (scales with slider rate as well)
         elif is_drawing_path:
-            if path_index < len(full_path):
-                displayed_path.append(full_path[path_index])
-                path_index += 1
-            else:
-                is_drawing_path = False
+            path_speed = max(1, speed_slider.val // 2)
+            for _ in range(path_speed):
+                if path_index < len(full_path):
+                    displayed_path.append(full_path[path_index])
+                    path_index += 1
+                else:
+                    is_drawing_path = False
+                    break
 
         # Rendering
         draw_grid(screen, grid, visited_cells, displayed_path)
@@ -322,7 +414,8 @@ def main():
             status = status,
             visited_count = len(visited_cells),
             path_len = len(full_path),
-            width = screen_width
+            width = screen_width,
+            slider = speed_slider
         )
         pygame.display.flip()
         clock.tick(60)

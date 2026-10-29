@@ -103,7 +103,8 @@ def dfs(grid: Grid) -> Generator[Tuple[str, Any], None, None]:
     yield ("not_found", None)       # when no route found
 
 def astar(grid: Grid) -> Generator[Tuple[str, Any], None, None]:
-
+    """Executes the A* Search Algorithm (Priority Queue + Manhattan Heuristic) for a given grid.
+    """
     start = grid.start
     goal = grid.goal
 
