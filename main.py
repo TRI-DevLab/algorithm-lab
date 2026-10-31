@@ -2,6 +2,7 @@ from sys import exit
 import pygame
 from grid import Grid, Coordinate
 from algorithms import bfs, dfs, astar
+from maze_generators import generate_random_obstacles, generate_recursive_backtracker
 
 # Dimensions 
 cell_size = 40
@@ -155,7 +156,7 @@ def draw_hud(
 
 
     # Row 2: Controls hotkey helper
-    helper_text = "[1/2/3] Switch Algo | [Space] Run | [C] Clear | [S/G+Clicker] Endpoints"
+    helper_text = "[1/2/3] Switch Algo | [Space] Run | [C] Clear | [M] Maze | [R] Random | [S/G+Clicker] Endpoints"
     helper_surf = small_font.render(helper_text, True, (173, 181, 189))
     screen.blit(helper_surf, (16, 42))
 
@@ -271,7 +272,7 @@ def main():
     # Initialize dynamic speed slider: (placed at x = 16, y = 58)
     speed_slider = Slider(
         x = 16,
-        y = 60,
+        y = 66,
         width = 140,
         height = 10, 
         min_val = 1,
@@ -318,9 +319,27 @@ def main():
                     search_generator = None
                     status = "IDLE"
 
-                # Selecting algorithm (when idle) 
+                # When idle 
                 elif not is_searching and not is_drawing_path:                  # prevents starting a new search while another search or path is operating 
-                    if event.key in (pygame.K_1, pygame.K_2, pygame.K_3):
+
+                    # Random Obstacle scatter 
+                    if event.key == pygame.K_r:
+                        visited_cells.clear()
+                        displayed_path.clear()
+                        full_path.clear()
+                        status = "IDLE"
+                        grid.walls = generate_random_obstacles(grid, density = 0.28)
+
+                    # Recursive Back-tracker Maze
+                    elif event.key == pygame.K_m:
+                        visited_cells.clear()
+                        displayed_path.clear()
+                        full_path.clear()
+                        status = "IDLE"
+                        grid.walls = generate_recursive_backtracker(grid)
+
+                    # Selecting algorithms
+                    elif event.key in (pygame.K_1, pygame.K_2, pygame.K_3):
                         selected_key = pygame.key.name(event.key)
                         name, current_algo = algorithms[selected_key]
                         visited_cells.clear()
