@@ -1,4 +1,4 @@
-from typing import Set, Tuple, List
+from typing import Set, Tuple, List, Dict
 
 Coordinate = Tuple[int, int] # Custom datatype for coordinates 
 
@@ -8,7 +8,8 @@ class Grid:
         height: int = 10, 
         start: Coordinate = (0, 0), 
         goal: Coordinate = None, 
-        walls: Set[Coordinate] = None
+        walls: Set[Coordinate] = None,
+        weights: Dict[Coordinate, int] = None
     ):
         self.width = width      # width of the grid (x)
         self.height = height    # height of the grid (y)
@@ -23,6 +24,11 @@ class Grid:
             self.walls = walls
         else:
             self.walls = set()      # if no imputed wall coordinate assign empty set
+
+        if weights is not None:         # if no weight added assign empty dictionary
+            self.weights = weights
+        else:
+            self.weights = {}
         
     def in_bounds(self, node: Coordinate) -> bool:
         """Check if the coordinates lie within the grid limits."""
@@ -57,6 +63,11 @@ class Grid:
                 valid_neighbors.append(next_node)
 
         return valid_neighbors
+
+    def cost(self, to_node: Coordinate) -> int:
+        """Returns movement cost to enter - to_node (default 1 | mud 5)."""
+
+        return self.weights.get(to_node, 1) # if no weight added 1 is the movement cost 
            
 
     def __str__(self):

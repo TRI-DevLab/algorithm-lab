@@ -23,6 +23,7 @@ def reconstruct_path(
     else:
         return []
 
+
 def manhattan_distance(a: Coordinate, b: Coordinate) -> int:
     """Heuristic function h(n) for grid path-finding."""
 
@@ -31,14 +32,26 @@ def manhattan_distance(a: Coordinate, b: Coordinate) -> int:
 
     return x_distance + y_distance      # estimated distance 
 
-def bfs(grid: Grid) -> Generator[Tuple[str, Any], None, None]:
+
+def calculate_path_cost(grid, path):
+    """Calculates the total weighted movement cost of a path (excluding the start cell)."""
+
+    if not path or len(path) <= 1:
+        return 0
+
+    return sum(grid.cost(node) for node in path[1:])
+
+
+def bfs(grid: Grid) -> Generator[Tuple[str, Any, Optional[int]], None, None]:
     """ 
     Executes the Breadth-First Search Algorithm (FIFO Queue) on a given Grid.
 
     Yields: 
     - ("visiting", Coordinate): The node (cell / coordinates) currently being processed
     - ("path", List[Coordinate]): The reconstructed shortest path from start to goal
-    - ("not_found", None): Indicates to path exits (goal unreachable)
+    - ("not_found", None): Indicates no path exits (goal unreachable)
+
+    Treats all passable cells with uniform cost of 1
     """
     start = grid.start
     goal = grid.goal
@@ -51,12 +64,13 @@ def bfs(grid: Grid) -> Generator[Tuple[str, Any], None, None]:
 
     while queue:                # Loop until empty
 
-        current = queue.popleft()       # Remove next cell
-        yield ("visiting", current)     # Cell currently being the processed
+        current = queue.popleft()               # Remove next cell
+        yield ("visiting", current, None)       # Cell currently being the processed
 
         if current == goal:     # Check wether goal was found
             path = reconstruct_path(came_from, start, goal)     # reconstructs path from start - goal when goal found
-            yield ("path", path)        # return shortest route
+            total_cost = calculate_path_cost(grid, path)        # total cost of path
+            yield ("path", path, total_cost)                    # return shortest route
             return                      # used to exit generator
 
         for neighbor in grid.neighbors(current):   # Get neighbor cells
@@ -65,10 +79,19 @@ def bfs(grid: Grid) -> Generator[Tuple[str, Any], None, None]:
                 queue.append(neighbor)             # add neighbor node to queue
 
 
-    yield ("not_found", None)           # When no path/route found
+    yield ("not_found", None, 0)           # When no path/route found
 
-def dfs(grid: Grid) -> Generator[Tuple[str, Any], None, None]:
-    """ Executes the Depth First Search Algorithm (LIFO stack) for a given Grid
+
+def dfs(grid: Grid) -> Generator[Tuple[str, Any, Optional[int]], None, None]:
+    """ 
+    Executes the Depth First Search Algorithm (LIFO stack) for a given Grid.
+
+    Yields:
+    - ("visiting", Coordinate): The node (cell / coordinate) currently being processed.
+    - ("path", List[Coordinate]): The reconstructed shortest path from start to goal.
+    - ("not_found", None): Indicates no path exists (goal unreachable)
+
+    Explores as deep as possible along a branch.
     """
     start = grid.start
     goal = grid.goal
@@ -88,11 +111,12 @@ def dfs(grid: Grid) -> Generator[Tuple[str, Any], None, None]:
             continue
 
         visited.add(current)
-        yield ("visiting", current)
+        yield ("visiting", current, None)
 
         if current == goal:         # Once goal found path is reconstructed and generated (May not be shortest path)
             path = reconstruct_path(came_from, start, goal)
-            yield ("path", path)
+            total_cost = calculate_path_cost(grid, path)
+            yield ("path", path, total_cost)
             return 
 
         for neighbor in grid.neighbors(current):        # used to find neighbors and add to stack for processing 
@@ -100,10 +124,14 @@ def dfs(grid: Grid) -> Generator[Tuple[str, Any], None, None]:
                 came_from[neighbor] = current
                 stack.append(neighbor)
 
-    yield ("not_found", None)       # when no route found
+    yield ("not_found", None, 0)       # when no route found
 
-def astar(grid: Grid) -> Generator[Tuple[str, Any], None, None]:
-    """Executes the A* Search Algorithm (Priority Queue + Manhattan Heuristic) for a given grid.
+
+def astar(grid: Grid) -> Generator[Tuple[str, Any, Optional[int]], None, None]:
+    """
+    Executes the A* Search Algorithm (Priority Queue + Manhattan Heuristic) for a given grid.
+    It combines cumulative cost with g(n) with Manhattan heuristics h(n).
+    Takes Weighted Terrain into account while directing exploration towards the goal.
     """
     start = grid.start
     goal = grid.goal
@@ -130,11 +158,11 @@ def astar(grid: Grid) -> Generator[Tuple[str, Any], None, None]:
         if current in closed_set:           # Skips entries for cells already processed
             continue
         closed_set.add(current)
-        yield ("visiting", current)
+        yield ("visiting", current, None)
 
         if current == goal:
             path = reconstruct_path(came_from, start, goal)
-            yield ("path", path)
+            yield ("path", path, g_score[goal])
             return
 
         tentative_g = g_score[current] + 1      # the cost of reaching a neighbor
@@ -147,7 +175,53 @@ def astar(grid: Grid) -> Generator[Tuple[str, Any], None, None]:
                 counter += 1
                 heapq.heappush(open_heap, (f_score, counter, neighbor))
 
-    yield ("not_found", None)
+    yield ("not_found", None, 0)
+
+
+def dijkstra(grid: Grid) -> Generator[Tuple[str, Any, Optional[int]], None, None]:
+    """
+    Executes Dijkstra's Algorithm which expands the lowest-cost nodes first using cumulative cost g(n).
+    It guarantees the lowest total weight route on a non-negative weighted graph.
+    """
+    start = grid.start
+    goal = grid.goal
+    counter = 0
+    open_heap = []
+    heapq.heappush(open_heap, (0, counter, start))
+
+    came_from: Dict[Coordinate, Optional[Coordinate]] = {
+        start: None
+    }
+
+    cost_so_far: Dict[Coordinate, int] = {
+        start: 0
+    }
+
+    closed_set = set()
+
+    while open_heap:                # while the heap is not empty
+        current_cost, _, current = heapq.heappop(open_heap)
+
+        if current in closed_set:
+            continue
+        closed_set.add(current)
+        yield ("visiting", current, None)
+
+        if current == grid.goal:
+            path = reconstruct_path(came_from, start, goal)
+            yield ("path", path, cost_so_far[goal])
+            return
+
+        for neighbor in grid.neighbors(current):
+            new_cost = cost_so_far[current] + grid.cost(neighbor)
+            if (neighbor not in cost_so_far) or (new_cost < cost_so_far[neighbor]):
+                cost_so_far[neighbor] = new_cost
+                came_from[neighbor] = current
+                counter += 1
+                heapq.heappush(open_heap, (new_cost, counter, neighbor))
+
+    yield("not_found", None, 0)
+    
 
 if __name__ == "__main__":
     # Test Run 

@@ -1,7 +1,7 @@
 from sys import exit
 import pygame
 from grid import Grid, Coordinate
-from algorithms import bfs, dfs, astar
+from algorithms import bfs, dfs, astar, dijkstra
 from maze_generators import generate_random_obstacles, generate_recursive_backtracker
 
 # Dimensions 
@@ -9,13 +9,14 @@ cell_size = 40
 hud_height = 85     # To make room for the metrics, hotkey and slider
 
 # Color (Chromonyms.com)
-grid_line_color = (200, 200, 200)   # Light Grey
+grid_line_color = (200, 200, 200)   # Light Grey - walkable ground (cost 1)
 bg_color = (255, 255, 255)          # White
 start_color = (40, 167, 69)         # Green
 goal_color = (255, 0, 0)            # Red
 wall_color = (52, 58, 64)           # Onyx
 visited_color = (173, 216, 230)     # Baby Blue
 path_color = (255, 213, 79)         # Mustard
+mud_color = (181, 136, 99)          # Camel/ Light Brown - Mud/ swamp terrain (cost 5)
 
 # Head Up Display (HUD) Styling
 hud_bg_color = (33, 77, 41)         # Dark Charcoal Header
@@ -33,7 +34,8 @@ slider_knob_color = (248, 249, 250) # Ghost White
 algorithms = {                                                   
     "1": ("Breadth-First Search (BFS)", bfs),
     "2": ("Depth First Search (DFS)", dfs),
-    "3": ("A* Search (Manhattan)", astar)
+    "3": ("A* Search (Manhattan)", astar),
+    "4": ("Dijkstra", dijkstra)
 }
 
 class Slider:
@@ -115,6 +117,7 @@ def draw_hud(
         status: str, 
         visited_count: int, 
         path_len: int, 
+        path_cost: int,
         width: int,
         slider: Slider
     ):
@@ -150,13 +153,13 @@ def draw_hud(
     screen.blit(status_surf, (status_x, 10))
 
     # Row 1 (Right): Visited & Path Length 
-    stats_text = f"Visited: {visited_count}    Path: {path_len}"
+    stats_text = f"Visited: {visited_count}    Hops: {path_len}     Cost: {path_cost}"
     stats_surf = font.render(stats_text, True, hud_text_color)
     screen.blit(stats_surf, (width - stats_surf.get_width() - 16, 10))
 
 
     # Row 2: Controls hotkey helper
-    helper_text = "[1/2/3] Switch Algo | [Space] Run | [C] Clear | [M] Maze | [R] Random | [S/G+Clicker] Endpoints"
+    helper_text = "[1-4] Switch Algo | [Space] Run | [C] Clear | [M] Maze | [R] Random  | [W+Click] Mud(5) | [S/G+Clicker] Endpoints"
     helper_surf = small_font.render(helper_text, True, (173, 181, 189))
     screen.blit(helper_surf, (16, 42))
 
@@ -170,9 +173,21 @@ def draw_grid(
         visited: list,
         path: list
     ):           
-    """Draw Grid lines, cells, start, goal, and walls."""
+    """Draw Grid lines, cells, start, goal, mud, and walls."""
 
-    screen.fill(bg_color)
+    # Base Terrain (Mud and Empty)
+    for y in range(grid.height):
+        for x in range(grid.width):
+            coord = (x, y)
+            rect = pygame.Rect(
+                x * cell_size,
+                y * cell_size + hud_height, 
+                cell_size,
+                cell_size
+            )
+
+            if coord in grid.weights:
+                pygame.draw.rect(screen, mud_color, rect)
 
     # Visited Cells
     for coord in visited:
@@ -185,7 +200,13 @@ def draw_grid(
                 cell_size
             )
 
-            pygame.draw.rect(screen, visited_color, rect)
+            # Tint mud cells slightly darker when visited
+            if coord in grid.weights:
+                cell_color = (110, 180, 220)
+            else:
+                cell_color = visited_color
+
+            pygame.draw.rect(screen, cell_color, rect)
 
     # Shortest Path Cells 
     for coord in path:
@@ -201,7 +222,7 @@ def draw_grid(
             pygame.draw.rect(screen, path_color, rect)
 
 
-    # Special Cells
+    # Special Cells (Start, Goal and Walls)
     for y in range(grid.height):
         for x in range(grid.width):
             coord = (x, y)
@@ -251,8 +272,6 @@ def main():
     small_font = pygame.font.SysFont("Consolas", 12)
 
 
-    pygame.display.set_caption('Algorithm Lab - Maze Editor')
-
     # initialize Grid Modal
     grid = Grid(
         width = 25,
@@ -289,6 +308,7 @@ def main():
     visited_cells = set()                           # Stores cells processed during the animation
     displayed_path = []                             # Stores path cells that have been revealed so far
     full_path = []                                  # Stores the completed shortest path after the goal is found
+    path_cost = 0                                   # Stores the path cost 
 
     # Animation Control Variables
     search_generator = None
@@ -311,9 +331,11 @@ def main():
                 # Press C to reset board 
                 if event.key == pygame.K_c:
                     grid.walls.clear()
+                    grid.weights.clear()
                     visited_cells.clear()
                     displayed_path.clear()
                     full_path.clear()
+                    path_cost = 0
                     is_searching = False
                     is_drawing_path = False
                     search_generator = None
@@ -327,6 +349,8 @@ def main():
                         visited_cells.clear()
                         displayed_path.clear()
                         full_path.clear()
+                        grid.weights.clear()
+                        path_cost = 0
                         status = "IDLE"
                         grid.walls = generate_random_obstacles(grid, density = 0.28)
 
@@ -335,16 +359,19 @@ def main():
                         visited_cells.clear()
                         displayed_path.clear()
                         full_path.clear()
+                        grid.weights.clear()
+                        path_cost = 0
                         status = "IDLE"
                         grid.walls = generate_recursive_backtracker(grid)
 
                     # Selecting algorithms
-                    elif event.key in (pygame.K_1, pygame.K_2, pygame.K_3):
+                    elif event.key in (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4):
                         selected_key = pygame.key.name(event.key)
                         name, current_algo = algorithms[selected_key]
                         visited_cells.clear()
                         displayed_path.clear()
                         full_path.clear()
+                        path_cost = 0
                         status = "IDLE"
 
                     # Run selected algorithm using SPACE
@@ -352,6 +379,7 @@ def main():
                         visited_cells.clear()
                         displayed_path.clear()
                         full_path.clear()
+                        path_cost = 0
                         search_generator = current_algo(grid)
                         is_searching = True
                         status = "SEARCHING..."
@@ -370,33 +398,43 @@ def main():
 
                     if keys_pressed[pygame.K_s]:        # s - key
                         # Move start node (coordinate)
-                        if grid_pos != grid.goal:           # start node cannot override goal node 
-                            grid.walls.discard(grid_pos)    # remove any walls already there
-                            grid.start = grid_pos           # assign or update the start node (coordinate)
+                        if grid_pos != grid.goal:               # start node cannot override goal node 
+                            grid.walls.discard(grid_pos)        # remove any walls already there
+                            grid.weights.pop(grid_pos, None)    # remove any mud placed there
+                            grid.start = grid_pos               # assign or update the start node (coordinate)
                     elif keys_pressed[pygame.K_g]:      # g - key
                         # Move goal node (coordinate)
-                        if grid_pos != grid.start:          # goal node cannot override start node
-                            grid.walls.discard(grid_pos)    # remove any walls already there
-                            grid.goal = grid_pos            # assign or update the goal node (coordinate)
+                        if grid_pos != grid.start:              # goal node cannot override start node
+                            grid.walls.discard(grid_pos)        # remove any walls already there
+                            grid.weights.pop(grid_pos, None)    # remove any mud placed there
+                            grid.goal = grid_pos                # assign or update the goal node (coordinate)
+                    elif keys_pressed[pygame.K_w]:
+                        # paint weighted mud cell (cost = 5)
+                        if grid_pos != grid.start and grid_pos != grid.goal:
+                            grid.walls.discard(grid_pos)
+                            grid.weights[grid_pos] = 5
                     else:
                         # Place a wall
                         if (grid_pos != grid.start) and (grid_pos != grid.goal): # Cannot override start or goal node
+                            grid.weights.pop(grid_pos, None)        # Discard mud when wall placed on top of it 
                             grid.walls.add(grid_pos)        # place wall node in set of walls
 
-                # Right mouse button - Erase walls
+                # Right mouse button - Erase walls and Mud
                 elif mouse_pressed[2]:
                     grid.walls.discard(grid_pos)
+                    grid.weights.pop(grid_pos, None)
 
         # Search exploration animation
         if is_searching and search_generator:
             speed = speed_slider.val
             for _ in range(speed):
                 try:                                            # Works as generator eventually has no more value and raises error       
-                    event_type, data = next(search_generator)
+                    event_type, data, cost = next(search_generator)
                     if event_type == "visiting":
                         visited_cells.add(data)
                     elif event_type == "path":
                         full_path = data
+                        path_cost = cost
                         is_searching = False
                         is_drawing_path = True
                         path_index = 0
@@ -424,6 +462,7 @@ def main():
                     break
 
         # Rendering
+        screen.fill(bg_color)
         draw_grid(screen, grid, visited_cells, displayed_path)
         draw_hud(
             screen = screen,
@@ -433,6 +472,7 @@ def main():
             status = status,
             visited_count = len(visited_cells),
             path_len = len(full_path),
+            path_cost = path_cost,
             width = screen_width,
             slider = speed_slider
         )
