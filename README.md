@@ -2,7 +2,20 @@
 
 An interactive path-finding visualizer and maze editor built in Python with Pygame.
 
-___
+![Algorithm Lab Demo](screenshot.png)
+
+---
+
+## Why I Made This
+
+Pathfinding algorithms like BFS, DFS, Dijkstra, and A* are fundamental computer science concepts, but understanding how they behave in practice—especially with obstacles, bottlenecks, and variable movement costs—can be difficult from static pseudocode alone.
+
+I created **Algorithm Lab** to build a visual, hands-on sandbox where anyone can:
+- Observe how algorithms explore graph search frontiers step-by-step in real time.
+- Directly compare unweighted shortest-path exploration against heuristic-directed search and cost-aware graph traversals.
+- Paint dynamic terrain weights (like mud) and generate procedural labyrinths with one keypress to see how algorithms react to challenging environments.
+
+---
 
 ## Features 
 
