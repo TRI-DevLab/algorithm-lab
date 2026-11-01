@@ -11,7 +11,14 @@ ___
     - `grid.py`: Python Grid data model and coordination validation
     - `algorithms.py`: graph search algorithms 
     - `main.py`: grid mapping, mouse and key events, and rendering algorithms
-
+    - `maze-generators.py`: 
+- ## Key Features
+- **Single & Dual-View Modes**: Switch dynamically between a focused single-grid view and a side-by-side synchronized canvas to race two algorithms head-to-head on the identical board.
+- **Dynamic Terrain & Weights**: Paint weighted mud tiles (movement cost = 5) to observe how heuristic-driven and cost-aware algorithms detour around expensive ground while unweighted algorithms plow straight through.
+- **Procedural Maze Generation**: Generate winding labyrinth corridors with Recursive Backtracking or scatter rock-like obstacles across the map with one keypress.
+- **Step-by-Step Traversal Animation**: Generator-driven exploration reveals frontier expansion and visited nodes tick-by-tick before animating the reconstructed path.
+- **Real-Time Telemetry HUD**: Monitors active algorithms, status, node exploration counts, path hop lengths, and total weighted costs directly on the canvas.
+- **Dynamic Speed Control**: Adjust the simulation playback rate (1x to 15x) on the fly without interrupting running searches.
 ___
 
 ## Project Structure
@@ -21,7 +28,7 @@ algorithm-lab/
 ├── grid.py          
 ├── algorithms.py    
 ├── main.py         
-├── requirements.txt 
+├── maze-generators.py
 └── README.md
 
 ```
@@ -55,11 +62,32 @@ ___
 
 ## Controls 
 
+### View & Simulation controls 
 | Action | Input | Description |
-| :--- | :--- | :--- |
-| **Draw Wall** | `Left-Click` + Drag | Places obstacle walls on empty cells. |
-| **Erase Wall** | `Right-Click` + Drag | Clears obstacle walls back to open cells. |
-| **Move Start Node** | `S` + `Left-Click` | Repositions the Start node (Green). |
-| **Move Goal Node** | `G` + `Left-Click` | Repositions the Goal node (Red). |
-| **Run Path-finding** | `Space` | Starts the animated search traversal. |
-| **Clear Board** | `C` | Clears all walls and resets visual path states. |
+| :--- | :---: | :--- |
+| **Toggle Dual View** | <kbd>V</kbd> | Toggle between Single View and Side-by-Side Dual View |
+| **Run / Race** | <kbd>Space</kbd> | Start path-finding simulation or side-by-side race |
+| **Clear Board** | <kbd>C</kbd> | Clear all walls, mud, and visual paths |
+| **Adjust Speed** | `Click / Drag` | Drag the slider on the top HUD to adjust speed (1x–15x)|
+
+#### Maze Generation
+| Action | Input | Description |
+| :--- | :---: | :--- |
+| **Recursive Maze** | <kbd>M</kbd> | Carve a winding labyrinth with guaranteed corridors |
+| **Random Scatter** | <kbd>R</kbd> | Scatter independent wall obstacles across the board |
+
+### Cell Editing
+| Action | Input | Description |
+| :--- | :---: | :--- |
+| **Draw Wall** | `Left-Click` + Drag | Place impassable walls[cite: 1, 2] |
+| **Paint Mud (Cost 5)** | <kbd>W</kbd> + `Left-Click` | Paint weighted mud cells |
+| **Erase** | `Right-Click` + Drag | Erase walls or mud back to normal ground[cite: 2] |
+| **Move Start Node** | <kbd>S</kbd> + `Left-Click` | Reposition the Start node (Green) |
+| **Move Goal Node** | <kbd>G</kbd> + `Left-Click` | Reposition the Goal node (Red) |
+
+### Algorithm Selection
+| Mode | Controls | Available Algorithms |
+| :--- | :---: | :--- |
+| **Single-View Mode** | <kbd>1</kbd> – <kbd>4</kbd> | `[1]` BFS &nbsp; `[2]` DFS &nbsp; `[3]` A* &nbsp; `[4]` Dijkstra |
+| **Dual-View: Left Canvas** | <kbd>1</kbd> – <kbd>4</kbd> | `[1]` BFS &nbsp; `[2]` DFS &nbsp; `[3]` A* &nbsp; `[4]` Dijkstra |
+| **Dual-View: Right Canvas** | <kbd>7</kbd>, <kbd>8</kbd>, <kbd>9</kbd>, <kbd>0</kbd> | `[7]` BFS &nbsp; `[8]` DFS &nbsp; `[9]` A* &nbsp; `[0]` Dijkstra |

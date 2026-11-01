@@ -195,7 +195,7 @@ def draw_hud(
         screen.blit(cost, (520, 10))
 
         # Controls helper
-        helper_text = "[V] Dual View | [1-4] Algo | [Space] Run | [M] Maze | [R] Random | [W+Click] Mud | [C] Clear | [S/G+Click] Endpoints"
+        helper_text = "[V] Dual View | [1-4] Algo | [Space] Run | [M] Maze | [R] Random | [W+Click] Mud | [C] Clear"
         helper_surf = small_font.render(helper_text, True, (173, 181, 189))
         screen.blit(helper_surf, (16, 38))
 
