@@ -189,7 +189,7 @@ def draw_hud(
         cost = font.render(f"Cost: {left_cost}", True, hud_accent_color if left_cost > 0 else hud_text_color)
 
         screen.blit(title, (16, 10))
-        screen.blit(stat, (150, 10))
+        screen.blit(stat, (140, 10))
         screen.blit(visited, (310, 10))
         screen.blit(hops, (430, 10))
         screen.blit(cost, (520, 10))
@@ -358,9 +358,9 @@ def main():
     # Used to determine the size of the screen depending on the View Mode
     def calc_window_geometry(is_dual):
         if is_dual:
-            cell_size = 28                  # For Dual View
+            cell_size = 30                  # For Dual View
         else:
-            cell_size = 38                  # Single View
+            cell_size = 40                  # Single View
 
         pixel_width = grid_w * cell_size        # Screen width in pixels
         pixel_height = grid_h * cell_size       # screen height in pixels 
